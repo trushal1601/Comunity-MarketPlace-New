@@ -1,0 +1,47 @@
+// Firebase Storage Security Rules
+// Copy these rules to Firebase Console → Storage → Rules
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Rules for community post images
+    match /communityPost/{imageId} {
+      // Anyone can read images
+      allow read: if true;
+      
+      // Only authenticated users can upload images
+      // Max file size: 5MB
+      // Only image files allowed
+      allow write: if request.auth != null &&
+                     request.resource.size < 5 * 1024 * 1024 &&
+                     request.resource.contentType.matches('image/.*');
+      
+      // Users can delete their own images
+      allow delete: if request.auth != null;
+    }
+
+    // Rules for user profile images
+    match /userProfiles/{imageId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+                     request.resource.size < 5 * 1024 * 1024 &&
+                     request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
+    // Rules for chat media images
+    match /chatMedia/{imageId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+                     request.resource.size < 10 * 1024 * 1024 &&
+                     request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+    
+    // Deny all other paths by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,80 @@
+// Firestore Security Rules - COMPLETE VERSION
+// Copy these rules to Firebase Console → Firestore Database → Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // UserPost collection rules
+    match /UserPost/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null &&
+                      request.resource.data.userEmail == request.auth.token.email;
+      allow update: if request.auth != null && 
+                      request.auth.token.email == resource.data.userEmail;
+      allow delete: if request.auth != null && 
+                      request.auth.token.email == resource.data.userEmail;
+    }
+    
+    // Category collection rules
+    match /Category/{categoryId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Sliders collection rules
+    match /Sliders/{sliderId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Reviews collection rules
+    match /Reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null &&
+                      request.resource.data.buyerEmail == request.auth.token.email;
+      allow update: if request.auth != null &&
+                      request.auth.token.email == resource.data.buyerEmail;
+      allow delete: if request.auth != null &&
+                      request.auth.token.email == resource.data.buyerEmail;
+    }
+    
+    // Chats collection rules
+    match /Chats/{chatId} {
+      allow read: if request.auth != null &&
+                    request.auth.token.email in resource.data.participants;
+      allow create: if request.auth != null &&
+                      request.auth.token.email in request.resource.data.participants;
+      allow update: if request.auth != null &&
+                      request.auth.token.email in resource.data.participants;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null &&
+                        request.resource.data.senderEmail == request.auth.token.email;
+        allow update: if request.auth != null &&
+                        request.auth.token.email in get(/databases/$(database)/documents/Chats/$(chatId)).data.participants;
+      }
+    }
+    
+    // Orders collection rules
+    match /Orders/{orderId} {
+      allow read: if request.auth != null &&
+                    (request.auth.token.email == resource.data.buyerEmail ||
+                     request.auth.token.email == resource.data.sellerEmail);
+      allow create: if request.auth != null &&
+                      request.resource.data.buyerEmail == request.auth.token.email;
+      allow update: if request.auth != null &&
+                      (request.auth.token.email == resource.data.buyerEmail ||
+                       request.auth.token.email == resource.data.sellerEmail);
+    }
+    
+    // Users collection rules (for profiles)
+    match /Users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+                     request.auth.token.email == userId;
+    }
+  }
+}
