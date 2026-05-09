@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import HomeScreenStackNav from './HomeScreenStackNav';
 import ExploreScreenStackNav from './ExploreScreenStackNav';
-import AddPost from '../Screen/AddPost';
+import AddPost from '../Screen/AddPostImproved';
 import ProfileStackNav from './ProfileStackNav';
 import MessagesStackNav from './MessagesStackNav';
 import Colors from '../Utils/Colors';

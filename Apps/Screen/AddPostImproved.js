@@ -7,11 +7,12 @@ import * as Yup from 'yup';
 import { AuthService } from '../Services/AuthService';
 import { FirebaseService } from '../Services/FirebaseService';
 import Colors from '../Utils/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
 const AddPostImproved = ({ navigation }) => {
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
   const [categoryList, setCategoryList] = useState([]);
   const [loading, setLoading] = useState(false);
   const user = AuthService.getCurrentUser();
@@ -36,25 +37,31 @@ const AddPostImproved = ({ navigation }) => {
 
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 4],
+      allowsMultipleSelection: true,
       quality: 0.7,
+      selectionLimit: 5,
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      const selectedUris = result.assets.map(asset => asset.uri);
+      setImages([...images, ...selectedUris].slice(0, 5));
     }
   };
 
+  const removeImage = (index) => {
+    const updatedImages = images.filter((_, i) => i !== index);
+    setImages(updatedImages);
+  };
+
   const onSubmitMethod = async (values, { resetForm }) => {
-    if (!image) {
-      Alert.alert('Error', 'Please select an image');
+    if (images.length === 0) {
+      Alert.alert('Error', 'Please select at least one image');
       return;
     }
 
     setLoading(true);
     try {
-      const uploadResult = await FirebaseService.uploadImage(image);
+      const uploadResult = await FirebaseService.uploadMultipleImages(images);
       
       if (!uploadResult.success) {
         throw new Error(uploadResult.error);
@@ -62,24 +69,34 @@ const AddPostImproved = ({ navigation }) => {
 
       const postData = {
         ...values,
-        image: uploadResult.url,
-        userName: user.displayName,
-        userEmail: user.email,
-        userImage: user.photoURL,
+        image: uploadResult.urls[0] || '', // Fallback to empty string if no url
+        images: uploadResult.urls || [],   // Fallback to empty array
+        userName: user?.displayName || user?.email || 'Anonymous',
+        userEmail: user?.email || '',
+        userImage: user?.photoURL || '',
+        phone: values.phone || '',
       };
+
+      // Ensure no undefined values are sent to Firestore
+      Object.keys(postData).forEach(key => {
+        if (postData[key] === undefined) {
+          postData[key] = '';
+        }
+      });
 
       const result = await FirebaseService.createPost(postData);
       
       if (result.success) {
         Alert.alert('Success', 'Post Added Successfully', [
-          { text: 'OK', onPress: () => navigation.goBack() }
+          { text: 'OK', onPress: () => navigation.navigate('Home') }
         ]);
         resetForm();
-        setImage(null);
+        setImages([]);
       } else {
         throw new Error(result.error);
       }
     } catch (error) {
+      console.error('Submit Error:', error);
       Alert.alert('Error', error.message || 'Failed to add post');
     } finally {
       setLoading(false);
@@ -90,6 +107,7 @@ const AddPostImproved = ({ navigation }) => {
     title: Yup.string().required('Title is required').min(3, 'Title must be at least 3 characters'),
     desc: Yup.string().required('Description is required').min(10, 'Description must be at least 10 characters'),
     price: Yup.number().required('Price is required').positive('Price must be positive').integer('Price must be a whole number'),
+    phone: Yup.string().required('Phone number is required').matches(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
     address: Yup.string().required('Address is required'),
     category: Yup.string().required('Category is required'),
   });
@@ -100,16 +118,28 @@ const AddPostImproved = ({ navigation }) => {
         <Text style={styles.header}>Add New Post</Text>
         <Text style={styles.subHeader}>Create New Post and Start Selling</Text>
         
-        <TouchableOpacity onPress={pickImage} style={styles.imagePicker}>
-          <Image
-            source={image ? { uri: image } : require('./../../assets/images/placeholder.png')}
-            style={styles.image}
-          />
-          <Text style={styles.imagePickerText}>Tap to select image</Text>
-        </TouchableOpacity>
+        <View style={styles.imageSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageList}>
+            {images.map((img, index) => (
+              <View key={index} style={styles.imageWrapper}>
+                <Image source={{ uri: img }} style={styles.selectedImage} />
+                <TouchableOpacity style={styles.removeIcon} onPress={() => removeImage(index)}>
+                  <Ionicons name="close-circle" size={24} color={Colors.ERROR} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {images.length < 5 && (
+              <TouchableOpacity onPress={pickImage} style={styles.imagePickerSmall}>
+                <Ionicons name="camera-outline" size={30} color={Colors.PRIMARY} />
+                <Text style={styles.imagePickerTextSmall}>Add Photo</Text>
+                <Text style={styles.limitText}>{images.length}/5</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
 
         <Formik
-          initialValues={{ title: '', desc: '', category: '', address: '', price: '' }}
+          initialValues={{ title: '', desc: '', category: '', address: '', price: '', phone: '' }}
           onSubmit={onSubmitMethod}
           validationSchema={validationSchema}
         >
@@ -137,16 +167,32 @@ const AddPostImproved = ({ navigation }) => {
               />
               {touched.desc && errors.desc && <Text style={styles.errorText}>{errors.desc}</Text>}
 
-              <TextInput
-                style={styles.input}
-                placeholder="Price (₹)"
-                placeholderTextColor={Colors.GRAY}
-                value={values.price}
-                onChangeText={handleChange('price')}
-                onBlur={handleBlur('price')}
-                keyboardType="numeric"
-              />
-              {touched.price && errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
+              <View style={styles.rowInputs}>
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Price (₹)"
+                    placeholderTextColor={Colors.GRAY}
+                    value={values.price}
+                    onChangeText={handleChange('price')}
+                    onBlur={handleBlur('price')}
+                    keyboardType="numeric"
+                  />
+                  {touched.price && errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
+                </View>
+                <View style={{ flex: 1.5 }}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Phone Number"
+                    placeholderTextColor={Colors.GRAY}
+                    value={values.phone}
+                    onChangeText={handleChange('phone')}
+                    onBlur={handleBlur('phone')}
+                    keyboardType="phone-pad"
+                  />
+                  {touched.phone && errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+                </View>
+              </View>
 
               <TextInput
                 style={styles.input}
@@ -176,7 +222,7 @@ const AddPostImproved = ({ navigation }) => {
                 onPress={handleSubmit}
                 disabled={loading}
               >
-                {loading ? <ActivityIndicator color={Colors.WHITE} /> : <Text style={styles.submitButtonText}>Submit</Text>}
+                {loading ? <ActivityIndicator color={Colors.WHITE} /> : <Text style={styles.submitButtonText}>Submit Post</Text>}
               </TouchableOpacity>
             </View>
           )}
@@ -207,26 +253,50 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 5,
   },
-  imagePicker: {
-    alignItems: 'center',
+  imageSection: {
     marginBottom: 20,
-    padding: 20,
-    backgroundColor: Colors.LIGHT_PRIMARY,
-    borderRadius: 15,
+  },
+  imageList: {
+    gap: 12,
+    paddingVertical: 5,
+  },
+  imageWrapper: {
+    position: 'relative',
+  },
+  selectedImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.BORDER,
+  },
+  removeIcon: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: Colors.WHITE,
+    borderRadius: 12,
+  },
+  imagePickerSmall: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: Colors.LIGHT_SECONDARY,
+    borderColor: Colors.PRIMARY,
+    backgroundColor: Colors.LIGHT_PRIMARY,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  image: {
-    height: 120,
-    width: 120,
-    borderRadius: 15,
-  },
-  imagePickerText: {
-    marginTop: 10,
+  imagePickerTextSmall: {
+    fontSize: 10,
     color: Colors.PRIMARY,
-    fontSize: width * 0.035,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  limitText: {
+    fontSize: 10,
+    color: Colors.TEXT_SECONDARY,
   },
   input: {
     borderWidth: 1,
@@ -237,6 +307,10 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     backgroundColor: Colors.WHITE,
     color: Colors.TEXT_PRIMARY,
+  },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 10,
   },
   textArea: {
     textAlignVertical: 'top',

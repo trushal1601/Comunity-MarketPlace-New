@@ -15,8 +15,13 @@ const MyProductsImproved = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (user?.primaryEmailAddress?.emailAddress) {
+    if (user?.email) {
       loadMyProducts();
+    } else {
+      // If user is not available yet, we wait, but we should handle the loading state
+      // However, usually user is available if we reached this screen
+      // But adding an else to stop loading if user is definitely null (guest)
+      if (user === null) setLoading(false);
     }
   }, [user]);
 

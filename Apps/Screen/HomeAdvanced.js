@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Text, Dimensions, TextInput, TouchableOpacity, ActivityIndicator, RefreshControl, Modal } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../Components/HomeScreen/Header';
 import Slider from '../Components/HomeScreen/Slider';
@@ -23,9 +24,11 @@ const HomeAdvanced = () => {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   useEffect(() => {
     filterItems();

@@ -95,6 +95,7 @@ const AddPost = () => {
     title: Yup.string().required('Title is required'),
     desc: Yup.string().required('Description is required'),
     price: Yup.number().required('Price is required').positive('Price must be positive'),
+    phone: Yup.string().required('Phone number is required').matches(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
     address: Yup.string().required('Address is required'),
     category: Yup.string().required('Category is required'),
   });
@@ -112,7 +113,7 @@ const AddPost = () => {
           <Text style={styles.imagePickerText}>Tap to select image</Text>
         </TouchableOpacity>
         <Formik
-          initialValues={{ title: '', desc: '', category: '', address: '', price: '', image: '', userName: '', userEmail: '', userImage: '', createdAt: Date.now() }}
+          initialValues={{ title: '', desc: '', category: '', address: '', price: '', image: '', userName: '', userEmail: '', userImage: '', createdAt: Date.now(), phone: '' }}
           onSubmit={onSubmitMethod}
           validationSchema={validationSchema}
         >
@@ -140,16 +141,32 @@ const AddPost = () => {
               />
               {touched.desc && errors.desc && <Text style={styles.errorText}>{errors.desc}</Text>}
 
-              <TextInput
-                style={styles.input}
-                placeholder="Price"
-                placeholderTextColor={Colors.GRAY}
-                value={values.price}
-                onChangeText={handleChange('price')}
-                onBlur={handleBlur('price')}
-                keyboardType="numeric"
-              />
-              {touched.price && errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
+              <View style={styles.rowInputs}>
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Price (₹)"
+                    placeholderTextColor={Colors.GRAY}
+                    value={values.price}
+                    onChangeText={handleChange('price')}
+                    onBlur={handleBlur('price')}
+                    keyboardType="numeric"
+                  />
+                  {touched.price && errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
+                </View>
+                <View style={{ flex: 1.5 }}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Phone Number"
+                    placeholderTextColor={Colors.GRAY}
+                    value={values.phone}
+                    onChangeText={handleChange('phone')}
+                    onBlur={handleBlur('phone')}
+                    keyboardType="phone-pad"
+                  />
+                  {touched.phone && errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+                </View>
+              </View>
 
               <TextInput
                 style={styles.input}
@@ -240,6 +257,10 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     backgroundColor: Colors.WHITE,
     color: Colors.TEXT_PRIMARY,
+  },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 10,
   },
   textArea: {
     textAlignVertical: 'top',

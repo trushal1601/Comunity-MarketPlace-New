@@ -17,8 +17,10 @@ const FavoritesScreen = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (user?.primaryEmailAddress?.emailAddress) {
+      if (user?.email) {
         loadFavorites();
+      } else if (user === null) {
+        setLoading(false);
       }
     }, [user])
   );

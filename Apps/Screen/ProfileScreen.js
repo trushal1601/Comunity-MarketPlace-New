@@ -14,6 +14,7 @@ const ProfileScreen = () => {
   const [profileData, setProfileData] = useState({
     displayName: user?.displayName || '',
     photoURL: user?.photoURL || '',
+    role: 'user'
   });
 
   useFocusEffect(
@@ -29,11 +30,7 @@ const ProfileScreen = () => {
           setProfileData({
             displayName: result.profile.displayName || user?.displayName || '',
             photoURL: result.profile.photoURL || user?.photoURL || '',
-          });
-        } else {
-          setProfileData({
-            displayName: user?.displayName || '',
-            photoURL: user?.photoURL || '',
+            role: result.profile.role || 'user'
           });
         }
       };
@@ -42,14 +39,18 @@ const ProfileScreen = () => {
       return () => {
         isActive = false;
       };
-    }, [user?.email, user?.displayName, user?.photoURL])
+    }, [user?.email])
   );
+
+  const isAdmin = profileData.role === 'admin' ||
+    user?.email === 'admin@marketplace.com' ||
+    user?.email === 'kath3@yopmail.com';
 
   const quickActions = [
     { id: 'listings', title: 'My Products', icon: 'pricetags-outline', route: 'MyProducts' },
+    { id: 'favorites', title: 'My Favorites', icon: 'heart-outline', route: 'Favorites' },
+    { id: 'stats', title: 'Statistics', icon: 'stats-chart-outline', route: 'ProfileStats' },
     { id: 'messages', title: 'Messages', icon: 'chatbubbles-outline', route: 'Messages' },
-    { id: 'explore', title: 'Explore', icon: 'search-outline', route: 'Explore' },
-    { id: 'home', title: 'Home', icon: 'home-outline', route: 'Home' },
   ];
 
   return (
@@ -65,12 +66,13 @@ const ProfileScreen = () => {
         </View>
         <Text style={styles.userName}>{profileData.displayName || user?.displayName || 'Marketplace User'}</Text>
         <Text style={styles.userEmail}>{user?.email || 'No email available'}</Text>
+        {isAdmin && <View style={styles.adminBadge}><Text style={styles.adminBadgeText}>Admin</Text></View>}
       </View>
 
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeadingRow}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <Text style={styles.sectionSubTitle}>Everything important in one place</Text>
+          <Text style={styles.sectionTitle}>Dashboard</Text>
+          <Text style={styles.sectionSubTitle}>Manage your activity and growth</Text>
         </View>
         <View style={styles.actionGrid}>
           {quickActions.map((item) => (
@@ -79,9 +81,16 @@ const ProfileScreen = () => {
                 <Ionicons name={item.icon} size={22} color={Colors.PRIMARY} />
               </View>
               <Text style={styles.actionText}>{item.title}</Text>
-              {/* <Ionicons name="chevron-forward" size={14} color={Colors.GRAY} /> */}
             </TouchableOpacity>
           ))}
+          {isAdmin && (
+            <TouchableOpacity style={[styles.actionBtn, styles.adminActionBtn]} onPress={() => navigation.navigate('AdminDashboard')}>
+              <View style={[styles.iconBadge, { backgroundColor: '#FEE2E2' }]}>
+                <Ionicons name="shield-checkmark-outline" size={22} color={Colors.ERROR} />
+              </View>
+              <Text style={[styles.actionText, { color: Colors.ERROR }]}>Admin Panel</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -150,6 +159,18 @@ const styles = StyleSheet.create({
     color: Colors.TEXT_SECONDARY,
     fontSize: width * 0.034,
   },
+  adminBadge: {
+    backgroundColor: Colors.ERROR,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  adminBadgeText: {
+    color: Colors.WHITE,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   sectionCard: {
     marginTop: 12,
     backgroundColor: Colors.WHITE,
@@ -159,7 +180,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   sectionHeadingRow: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   sectionTitle: {
     color: Colors.TEXT_PRIMARY,
@@ -188,6 +209,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 102,
     marginBottom: 10,
+  },
+  adminActionBtn: {
+    borderColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
   },
   iconBadge: {
     height: 40,

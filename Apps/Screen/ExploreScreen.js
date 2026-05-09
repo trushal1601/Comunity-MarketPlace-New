@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, Dimensions, RefreshControl, ScrollView, TextInput } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, getFirestore, orderBy, query } from 'firebase/firestore';
 import { app } from '../../firebaseConfig';
@@ -12,7 +13,7 @@ const ExploreScreen = () => {
   const db = getFirestore(app);
   const [productList, setProductList] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
 
   useEffect(() => {
     getAllProducts();
@@ -32,17 +33,30 @@ const ExploreScreen = () => {
   };
 
   const filteredProducts = useMemo(() => {
+    let result = [...productList];
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return productList;
+    
+    if (term) {
+      result = result.filter((item) => {
+        const title = item?.title?.toLowerCase() || '';
+        const desc = item?.desc?.toLowerCase() || '';
+        const category = item?.category?.toLowerCase() || '';
+        const address = item?.address?.toLowerCase() || '';
+        return title.includes(term) || desc.includes(term) || category.includes(term) || address.includes(term);
+      });
+    }
 
-    return productList.filter((item) => {
-      const title = item?.title?.toLowerCase() || '';
-      const desc = item?.desc?.toLowerCase() || '';
-      const category = item?.category?.toLowerCase() || '';
-      const address = item?.address?.toLowerCase() || '';
-      return title.includes(term) || desc.includes(term) || category.includes(term) || address.includes(term);
-    });
-  }, [productList, searchTerm]);
+    // Apply Sorting
+    if (sortBy === 'priceLow') {
+      result.sort((a, b) => parseFloat(a.price || 0) - parseFloat(b.price || 0));
+    } else if (sortBy === 'priceHigh') {
+      result.sort((a, b) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
+    } else {
+      result.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+
+    return result;
+  }, [productList, searchTerm, sortBy]);
 
   return (
     <ScrollView
@@ -53,15 +67,31 @@ const ExploreScreen = () => {
       <Text style={styles.heading}>Explore Marketplace</Text>
       <Text style={styles.subHeading}>Discover listings from your community</Text>
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={Colors.GRAY} />
-        <TextInput
-          placeholder="Search by title, description, category, location"
-          placeholderTextColor={Colors.GRAY}
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          style={styles.searchInput}
-        />
+      <View style={styles.controlsRow}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={Colors.GRAY} />
+          <TextInput
+            placeholder="Search listings..."
+            placeholderTextColor={Colors.GRAY}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            style={styles.searchInput}
+          />
+        </View>
+        
+        <View style={styles.sortContainer}>
+          <Ionicons name="filter" size={18} color={Colors.PRIMARY} />
+          <Picker
+            selectedValue={sortBy}
+            onValueChange={(itemValue) => setSortBy(itemValue)}
+            style={styles.picker}
+            dropdownIconColor={Colors.PRIMARY}
+          >
+            <Picker.Item label="Newest" value="newest" style={styles.pickerItem} />
+            <Picker.Item label="Price: Low to High" value="priceLow" style={styles.pickerItem} />
+            <Picker.Item label="Price: High to Low" value="priceHigh" style={styles.pickerItem} />
+          </Picker>
+        </View>
       </View>
 
       {searchTerm ? <Text style={styles.resultText}>{filteredProducts.length} results found</Text> : null}
@@ -89,7 +119,14 @@ const styles = StyleSheet.create({
     color: Colors.TEXT_SECONDARY,
     marginBottom: 12,
   },
+  controlsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
   searchContainer: {
+    flex: 0.6,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.WHITE,
@@ -97,14 +134,31 @@ const styles = StyleSheet.create({
     borderColor: Colors.BORDER,
     borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 10,
+    height: 48,
+  },
+  sortContainer: {
+    flex: 0.4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.WHITE,
+    borderWidth: 1,
+    borderColor: Colors.BORDER,
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    height: 48,
   },
   searchInput: {
     flex: 1,
     marginLeft: 8,
     color: Colors.TEXT_PRIMARY,
-    fontSize: width * 0.034,
+    fontSize: width * 0.032,
+  },
+  picker: {
+    flex: 1,
+    color: Colors.TEXT_PRIMARY,
+  },
+  pickerItem: {
+    fontSize: 14,
   },
   resultText: {
     marginBottom: 8,

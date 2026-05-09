@@ -1,32 +1,40 @@
-import { View, Text,TouchableOpacity ,Image, StyleSheet, Dimensions} from 'react-native'
+import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions } from 'react-native'
 import React from 'react'
 import { useNavigation } from '@react-navigation/native'
+import { Ionicons } from '@expo/vector-icons'
 import Colors from '../../Utils/Colors';
 
 const { width } = Dimensions.get('window');
 
-const PostItem = ({item}) => {
+const PostItem = ({ item }) => {
 
-    const navigation=useNavigation();
+  const navigation = useNavigation();
   return (
-    
-      <TouchableOpacity style={styles.container} onPress={()=>navigation.push('ProductDetail',
-        {
-          product:item
-        }
-      )}>
-         <Image
-          source={item?.image ? { uri: item.image } : require('./../../../assets/images/placeholder.png')}
-          style={styles.image}
-        />
-         <View style={styles.contentContainer}>
-          <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.price}>₹ {item.price}</Text>
+
+    <TouchableOpacity style={styles.container} onPress={() => navigation.push('ProductDetail',
+      {
+        product: item
+      }
+    )}>
+      <Image
+        source={item?.image ? { uri: item.image } : require('./../../../assets/images/placeholder.png')}
+        style={styles.image}
+      />
+      <View style={styles.contentContainer}>
+        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.price}>₹ {item.price}</Text>
+
+        <View style={styles.footerRow}>
           <View style={styles.categoryBadge}>
             <Text style={styles.categoryText}>{item.category}</Text>
           </View>
-          </View>
-          </TouchableOpacity>
+          {/* <View style={styles.viewsRow}>
+            <Ionicons name="eye-outline" size={14} color={Colors.GRAY} />
+            <Text style={styles.viewsText}>{item.views || 0}</Text>
+          </View> */}
+        </View>
+      </View>
+    </TouchableOpacity>
 
   )
 }
@@ -68,19 +76,33 @@ const styles = StyleSheet.create({
     color: Colors.PRIMARY,
     marginTop: 4,
   },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
   categoryBadge: {
     backgroundColor: Colors.LIGHT_SECONDARY,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 15,
     alignSelf: 'flex-start',
-    marginTop: 6,
   },
   categoryText: {
     color: Colors.PRIMARY,
     fontSize: width * 0.028,
     fontWeight: '600',
   },
+  viewsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewsText: {
+    color: Colors.GRAY,
+    fontSize: 12,
+  }
 });
 
 export default PostItem

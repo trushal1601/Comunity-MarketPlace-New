@@ -8,7 +8,9 @@ import LatestItem from '../Components/HomeScreen/LatestItem';
 import { app } from '../../firebaseConfig';
 import { collection, getDocs, getFirestore, onSnapshot, orderBy, query } from 'firebase/firestore';
 import Colors from '../Utils/Colors';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+
+import { HomeSkeleton } from '../Components/Skeleton';
 
 const { width } = Dimensions.get('window');
 
@@ -19,30 +21,43 @@ const Home = () => {
   const [sliderList, setSliderList] = useState([]);
   const [latestItemList, setLatestItemList] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadInitial = async () => {
-      await Promise.all([getSliders(), getCategoryList()]);
-    };
-
-    loadInitial();
     const unsubscribe = subscribeLatestItems();
-
     return () => unsubscribe?.();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadData = async () => {
+        // Initial load shows skeleton, subsequent loads happen in background
+        if (sliderList.length === 0) setLoading(true);
+        await Promise.all([getSliders(), getCategoryList()]);
+        setLoading(false);
+      };
+      loadData();
+    }, [])
+  );
 
   const subscribeLatestItems = () => {
     const q = query(collection(db, 'UserPost'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (querySnapshot) => {
       const items = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setLatestItemList(items);
+    }, (error) => {
+      console.error('onSnapshot error:', error);
     });
   };
 
   const getSliders = async () => {
-    const querySnapshot = await getDocs(collection(db, 'Sliders'));
-    const sliders = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    setSliderList(sliders);
+    try {
+      const querySnapshot = await getDocs(collection(db, 'Sliders'));
+      const sliders = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setSliderList(sliders);
+    } catch (error) {
+      console.error('Error fetching sliders:', error);
+    }
   };
 
   const getCategoryList = async () => {
@@ -60,6 +75,10 @@ const Home = () => {
     await Promise.all([getSliders(), getCategoryList()]);
     setRefreshing(false);
   };
+
+  if (loading) {
+    return <HomeSkeleton />;
+  }
 
   return (
     <ScrollView
@@ -96,7 +115,7 @@ const Home = () => {
       <Categories categoryList={categoryList} />
 
       <View style={styles.latestHeaderRow}>
-        <Text style={styles.heading}>Latest Items</Text>
+        <Text style={styles.heading}>Latest Items ({latestItemList.length})</Text>
       </View>
 
       <LatestItem latestItemList={latestItemList} emptyMessage="No listings available right now." scrollEnabled={false} />

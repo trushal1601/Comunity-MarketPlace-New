@@ -13,8 +13,12 @@ const ProfileStatsScreen = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    if (user?.email) {
+      loadStats();
+    } else if (user === null) {
+      setLoading(false);
+    }
+  }, [user]);
 
   const loadStats = async () => {
     const result = await FirebaseService.getUserStats(user.email);

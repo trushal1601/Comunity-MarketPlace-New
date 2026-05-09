@@ -1,6 +1,6 @@
-import { collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, updateDoc, limit, startAfter, setDoc, onSnapshot, getDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../firebaseConfig';
+import { collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, updateDoc, limit, startAfter, setDoc, onSnapshot, getDoc, runTransaction, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { db } from '../../firebaseConfig';
 
 const getSafeEmailKey = (email = '') => email.replace(/[.#$/\[\]]/g, '_');
 const getSafeIdPart = (value = '') => String(value).replace(/[\/#?\[\]]/g, '_');
@@ -17,7 +17,8 @@ export const FirebaseService = {
         ...postData,
         createdAt: Date.now(),
         views: 0,
-        favorites: []
+        favorites: [],
+        images: postData.images || (postData.image ? [postData.image] : [])
       });
       return { success: true, id: docRef.id };
     } catch (error) {
@@ -122,16 +123,36 @@ export const FirebaseService = {
     }
   },
 
-  async uploadImage(uri, path = 'communityPost') {
+  async uploadImage(uri) {
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const storageRef = ref(storage, `${path}/${Date.now()}.jpg`);
-      await uploadBytes(storageRef, blob);
-      const downloadUrl = await getDownloadURL(storageRef);
-      return { success: true, url: downloadUrl };
+      // Compress and convert to base64 for Firestore storage
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 800 } }], // Resize to keep string length manageable
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      return { success: true, url: `data:image/jpeg;base64,${result.base64}` };
     } catch (error) {
+      console.error('Image Conversion Error:', error);
       return { success: false, error: error.message };
+    }
+  },
+
+  async uploadMultipleImages(uris) {
+    try {
+      if (!uris || uris.length === 0) return { success: true, urls: [] };
+      
+      const uploadPromises = uris.map(uri => this.uploadImage(uri));
+      const results = await Promise.all(uploadPromises);
+      const urls = results.filter(r => r.success).map(r => r.url);
+      
+      if (urls.length === 0 && uris.length > 0) {
+        return { success: false, error: 'Failed to process images', urls: [] };
+      }
+      
+      return { success: true, urls };
+    } catch (error) {
+      return { success: false, error: error.message, urls: [] };
     }
   },
 
@@ -607,6 +628,41 @@ export const FirebaseService = {
     }
   },
 
+  // Mark Post as Sold
+  async markAsSold(product) {
+    try {
+      const postRef = doc(db, 'UserPost', product.id);
+      
+      // 1. Update Post Status
+      await updateDoc(postRef, {
+        status: 'sold',
+        isSold: true,
+        updatedAt: Date.now()
+      });
+
+      // 2. Create an Order record (wrapped in try-catch to avoid blocking if Rules for 'Orders' are missing)
+      try {
+        await addDoc(collection(db, 'Orders'), {
+          postId: product.id || '',
+          postTitle: product.title || '',
+          price: product.price || 0,
+          sellerEmail: product.userEmail || '',
+          sellerName: product.userName || '',
+          buyerEmail: 'offline_buyer@marketplace.com',
+          createdAt: Date.now(),
+          status: 'completed'
+        });
+      } catch (orderErr) {
+        console.warn('Order record creation failed (check Firebase Rules):', orderErr.message);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Mark as sold error:', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
   // Price Filter
   async getPostsByPriceRange(minPrice, maxPrice) {
     try {
@@ -622,6 +678,88 @@ export const FirebaseService = {
       return { success: true, posts };
     } catch (error) {
       return { success: false, error: error.message, posts: [] };
+    }
+  },
+
+  // Premium Features Methods
+  async incrementViews(postId) {
+    try {
+      const postRef = doc(db, 'UserPost', postId);
+      await updateDoc(postRef, {
+        views: increment(1)
+      });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async reportPost(reportData) {
+    try {
+      const docRef = await addDoc(collection(db, 'Reports'), {
+        ...reportData,
+        status: 'pending',
+        createdAt: Date.now()
+      });
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getReports() {
+    try {
+      const q = query(collection(db, 'Reports'), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      const reports = [];
+      snapshot.forEach((doc) => {
+        reports.push({ id: doc.id, ...doc.data() });
+      });
+      return { success: true, reports };
+    } catch (error) {
+      return { success: false, error: error.message, reports: [] };
+    }
+  },
+
+  async toggleFollow(currentUserEmail, sellerEmail) {
+    try {
+      if (!currentUserEmail || !sellerEmail) return { success: false };
+      
+      const userRef = doc(db, 'Users', currentUserEmail);
+      const sellerRef = doc(db, 'Users', sellerEmail);
+      
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.exists() ? userSnap.data() : { following: [] };
+      const isFollowing = (userData.following || []).includes(sellerEmail);
+      
+      await runTransaction(db, async (transaction) => {
+        if (isFollowing) {
+          transaction.update(userRef, { following: arrayRemove(sellerEmail) });
+          transaction.update(sellerRef, { followers: arrayRemove(currentUserEmail) });
+        } else {
+          transaction.update(userRef, { following: arrayUnion(sellerEmail) });
+          transaction.update(sellerRef, { followers: arrayUnion(currentUserEmail) });
+        }
+      });
+      
+      return { success: true, isFollowing: !isFollowing };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async isFollowing(currentUserEmail, sellerEmail) {
+    try {
+      if (!currentUserEmail || !sellerEmail) return false;
+      const userRef = doc(db, 'Users', currentUserEmail);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        return (userData.following || []).includes(sellerEmail);
+      }
+      return false;
+    } catch (error) {
+      return false;
     }
   }
 };
