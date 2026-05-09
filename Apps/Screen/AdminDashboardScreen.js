@@ -20,9 +20,17 @@ const AdminDashboardScreen = () => {
 
   const loadReports = async () => {
     setLoading(true);
-    const result = await FirebaseService.getReports();
-    if (result.success) {
-      setReports(result.reports);
+    try {
+      const result = await FirebaseService.getReports();
+      console.log('Admin reports fetch result:', result);
+      if (result.success) {
+        setReports(result.reports);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to fetch reports');
+      }
+    } catch (error) {
+      console.error('Admin dashboard error:', error);
+      Alert.alert('Error', 'An unexpected error occurred while loading reports.');
     }
     setLoading(false);
   };
@@ -56,10 +64,17 @@ const AdminDashboardScreen = () => {
   };
 
   const dismissReport = async (reportId) => {
-    // In a real app, we might mark as 'resolved' instead of deleting
-    // For simplicity, we'll just remove from our local state after a successful mock resolution
-    // Or we could add a deleteReport method to FirebaseService
-    setReports(reports.filter(r => r.id !== reportId));
+    try {
+      const result = await FirebaseService.deleteReport(reportId);
+      if (result.success) {
+        setReports(prev => prev.filter(r => r.id !== reportId));
+      } else {
+        Alert.alert('Error', result.error || 'Failed to dismiss report');
+      }
+    } catch (error) {
+      console.error('Dismiss report error:', error);
+      Alert.alert('Error', 'An unexpected error occurred while dismissing the report.');
+    }
   };
 
   if (loading) {

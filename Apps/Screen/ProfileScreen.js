@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, ScrollView, Alert } from 'react-native';
 import React, { useState } from 'react';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,6 +53,26 @@ const ProfileScreen = () => {
     { id: 'messages', title: 'Messages', icon: 'chatbubbles-outline', route: 'Messages' },
   ];
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to log out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: async () => {
+            const result = await AuthService.logout();
+            if (!result.success) {
+              Alert.alert('Error', 'Failed to log out. Please try again.');
+            }
+          }
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       <View style={styles.topBand} />
@@ -94,7 +114,7 @@ const ProfileScreen = () => {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={() => AuthService.logout()}>
+      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={20} color={Colors.ERROR} />
         <Text style={styles.logoutText}>Log out</Text>
       </TouchableOpacity>

@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Dimensions, KeyboardAvoidingView, Platform, Alert, Image, InteractionManager } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Dimensions, KeyboardAvoidingView, Platform, Alert, Image, InteractionManager, Modal } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { AuthService } from '../Services/AuthService';
@@ -19,6 +19,9 @@ const ChatScreen = () => {
   const [otherUserEmail, setOtherUserEmail] = useState('');
   const [otherUserImage, setOtherUserImage] = useState('');
   const [subscriptionVersion, setSubscriptionVersion] = useState(0);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  
   const listRef = useRef(null);
   const queueRef = useRef([]);
   const isProcessingQueueRef = useRef(false);
@@ -356,7 +359,14 @@ const ChatScreen = () => {
         )}
 
         <View style={[styles.messageContainer, isMyMessage ? styles.myMessage : styles.theirMessage]}>
-          {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.messageImage} /> : null}
+          {item.imageUrl ? (
+            <TouchableOpacity onPress={() => {
+              setSelectedImage(item.imageUrl);
+              setIsModalVisible(true);
+            }}>
+              <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
+            </TouchableOpacity>
+          ) : null}
           {item.text ? <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>{item.text}</Text> : null}
           <View style={[styles.messageMetaRow, isMyMessage && styles.myMessageMetaRow]}>
             <Text style={[styles.messageTime, isMyMessage && styles.myMessageTime]}>
@@ -436,6 +446,29 @@ const ChatScreen = () => {
           <Ionicons name="send" size={20} color={Colors.WHITE} />
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        onRequestClose={() => setIsModalVisible(false)}
+        animationType="fade"
+      >
+        <View style={styles.modalBackground}>
+          <TouchableOpacity
+            style={styles.modalCloseButton}
+            onPress={() => setIsModalVisible(false)}
+          >
+            <Ionicons name="close" size={30} color="white" />
+          </TouchableOpacity>
+          {selectedImage && (
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -601,6 +634,25 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: Colors.LIGHT_GRAY,
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 25,
+  },
+  fullScreenImage: {
+    width: width,
+    height: width,
   },
 });
 

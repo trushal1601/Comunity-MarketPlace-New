@@ -67,9 +67,10 @@ const ProductDetailImproved = ({ navigation }) => {
       [
         { text: 'Spam', onPress: () => submitReport('Spam') },
         { text: 'Scam', onPress: () => submitReport('Scam') },
-        { text: 'Inappropriate', onPress: () => submitReport('Inappropriate') },
-        { text: 'Cancel', style: 'cancel' },
-      ]
+        { text: 'Close', style: 'cancel' },
+        // { text: 'Inappropriate', onPress: () => submitReport('Inappropriate') },
+      ],
+      { cancelable: true }
     );
   };
 
@@ -82,9 +83,13 @@ const ProductDetailImproved = ({ navigation }) => {
       reason: reason,
       timestamp: Date.now()
     };
+    console.log('Submitting report:', reportData);
     const result = await FirebaseService.reportPost(reportData);
+    console.log('Report submission result:', result);
     if (result.success) {
       Alert.alert('Success', 'Thank you for reporting. Our team will review this post.');
+    } else {
+      Alert.alert('Error', result.error || 'Failed to submit report');
     }
   };
 
@@ -192,6 +197,36 @@ const ProductDetailImproved = ({ navigation }) => {
     );
   };
 
+  const giveReview = () => {
+    Alert.alert(
+      'Rate Seller',
+      'How was your experience with this seller?',
+      [
+        { text: '5 Stars ⭐⭐⭐⭐⭐', onPress: () => submitReview(5) },
+        { text: '4 Stars ⭐⭐⭐⭐', onPress: () => submitReview(4) },
+        { text: '3 Stars ⭐⭐⭐', onPress: () => submitReview(3) },
+        { text: '2 Stars ⭐⭐', onPress: () => submitReview(2) },
+        { text: '1 Star ⭐', onPress: () => submitReview(1) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const submitReview = async (rating) => {
+    const reviewData = {
+      postId: product.id,
+      postTitle: product.title,
+      sellerEmail: product.userEmail,
+      buyerEmail: user?.email,
+      buyerName: user?.displayName || 'Buyer',
+      rating: rating,
+    };
+    const result = await FirebaseService.addReview(reviewData);
+    if (result.success) {
+      Alert.alert('Thank You!', 'Your review has been submitted successfully.');
+    }
+  };
+
   const navigateToSellerProfile = () => {
     nav.navigate('SellerProfile', {
       sellerEmail: product.userEmail,
@@ -270,21 +305,30 @@ const ProductDetailImproved = ({ navigation }) => {
         <Text style={styles.description}>{product.desc}</Text>
       </View>
 
-      <TouchableOpacity
-        style={styles.userInfoContainer}
-        onPress={navigateToSellerProfile}
-      >
-        <Image
-          source={product.userImage ? { uri: product.userImage } : require('../../assets/images/placeholder.png')}
-          style={styles.userImage}
-        />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.userName}>{product.userName}</Text>
-          <Text style={styles.userEmail}>{product.userEmail}</Text>
-          <Text style={styles.viewProfileText}>View Profile</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={24} color={Colors.PRIMARY} />
-      </TouchableOpacity>
+      <View style={styles.sellerSection}>
+        <TouchableOpacity
+          style={styles.userInfoContainer}
+          onPress={navigateToSellerProfile}
+        >
+          <Image
+            source={product.userImage ? { uri: product.userImage } : require('../../assets/images/placeholder.png')}
+            style={styles.userImage}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.userName}>{product.userName}</Text>
+            <Text style={styles.userEmail}>{product.userEmail}</Text>
+            <Text style={styles.viewProfileText}>View Profile</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={Colors.PRIMARY} />
+        </TouchableOpacity>
+
+        {user?.email !== product.userEmail && (
+          <TouchableOpacity style={styles.reviewButton} onPress={giveReview}>
+            <Ionicons name="star-outline" size={18} color={Colors.PRIMARY} />
+            <Text style={styles.reviewButtonText}>Rate this Seller</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {user?.email === product.userEmail ? (
         <View style={styles.ownerActions}>
@@ -430,13 +474,32 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 24,
   },
+  sellerSection: {
+    backgroundColor: Colors.WHITE,
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.BORDER,
+  },
   userInfoContainer: {
     padding: width * 0.04,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: Colors.LIGHT_PRIMARY,
-    marginTop: 0,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.BORDER,
+    gap: 8,
+  },
+  reviewButtonText: {
+    color: Colors.PRIMARY,
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   userImage: {
     height: 50,

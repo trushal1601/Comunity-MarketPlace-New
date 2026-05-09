@@ -707,17 +707,73 @@ export const FirebaseService = {
     }
   },
 
+  async deleteReport(reportId) {
+    try {
+      await deleteDoc(doc(db, 'Reports', reportId));
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
   async getReports() {
     try {
-      const q = query(collection(db, 'Reports'), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      const reports = [];
-      snapshot.forEach((doc) => {
-        reports.push({ id: doc.id, ...doc.data() });
-      });
+      console.log('Fetching reports from Firestore...');
+      let reports = [];
+      try {
+        const q = query(collection(db, 'Reports'), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        console.log(`Advanced reports query found ${snapshot.size} items`);
+        snapshot.forEach((doc) => {
+          reports.push({ id: doc.id, ...doc.data() });
+        });
+      } catch (err) {
+        console.warn('Advanced reports query failed, falling back to simple query:', err.message);
+        const q = query(collection(db, 'Reports'));
+        const snapshot = await getDocs(q);
+        console.log(`Fallback reports query found ${snapshot.size} items`);
+        snapshot.forEach((doc) => {
+          reports.push({ id: doc.id, ...doc.data() });
+        });
+      }
       return { success: true, reports };
     } catch (error) {
+      console.error('getReports fatal error:', error);
       return { success: false, error: error.message, reports: [] };
+    }
+  },
+
+  // Reviews & Ratings
+  async addReview(reviewData) {
+    try {
+      const docRef = await addDoc(collection(db, 'Reviews'), {
+        ...reviewData,
+        createdAt: Date.now()
+      });
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getUserReviews(userEmail) {
+    try {
+      const q = query(collection(db, 'Reviews'), where('sellerEmail', '==', userEmail), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      const reviews = [];
+      snapshot.forEach((doc) => {
+        reviews.push({ id: doc.id, ...doc.data() });
+      });
+      return { success: true, reviews };
+    } catch (error) {
+      // Fallback if index missing
+      const q = query(collection(db, 'Reviews'), where('sellerEmail', '==', userEmail));
+      const snapshot = await getDocs(q);
+      const reviews = [];
+      snapshot.forEach((doc) => {
+        reviews.push({ id: doc.id, ...doc.data() });
+      });
+      return { success: true, reviews };
     }
   },
 
